@@ -1,56 +1,47 @@
--- Configuration & Target Animations set directly according to AOEX framework
-local SelectedAnims = {
-    ["Idle"] = {"10921230744", "10921232093"}, -- Oldschool Idle (Animation1 & Animation2)
-    ["Walk"] = "707897309",                   -- Mage Walk
-    ["Run"]  = "10921148209",                 -- Mage Run/Dance
-    ["Jump"] = "10921242013",                 -- Oldschool Jump
-    ["Fall"] = "782846423",                   -- Toy Fall
-    ["Climb"]= "10921229866"                  -- Oldschool Climb
-}
-
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
-local function applyAOEXAnimations(character)
-    local humanoid = character:WaitForChild("Humanoid", 10)
+local function applyAnimations(character)
     local animate = character:WaitForChild("Animate", 10)
-    if not humanoid or not animate then return end
+    if not animate then return end
 
-    -- Helper to safely update Animation Object IDs inside the Animate script tree
-    local function updateAnim(folderName, animName, id)
+    local function setAnim(folderName, animName, id)
         local folder = animate:FindFirstChild(folderName)
         if folder then
-            local animObj = folder:FindFirstChild(animName)
-            if animObj and animObj:IsA("Animation") then
-                animObj.AnimationId = "rbxassetid://" .. tostring(id)
+            local anim = folder:FindFirstChild(animName)
+            if anim and anim:IsA("Animation") then
+                anim.AnimationId = "rbxassetid://" .. id
             end
         end
     end
 
-    -- Apply Idle
-    updateAnim("idle", "Animation1", SelectedAnims["Idle"][1])
-    updateAnim("idle", "Animation2", SelectedAnims["Idle"][2])
+    -- 1. وقفة OldSchool
+    setAnim("idle", "Animation1", "10921230744")
+    setAnim("idle", "Animation2", "10921232093")
 
-    -- Apply Walk
-    updateAnim("walk", "RunAnim", SelectedAnims["Walk"])
+    -- 2. المشية Mage
+    setAnim("walk", "RunAnim", "707897309")
 
-    -- Apply Run
-    updateAnim("run", "RunAnim", SelectedAnims["Run"])
+    -- 3. الجري Mage
+    setAnim("run", "RunAnim", "10921148209")
 
-    -- Apply Jump
-    updateAnim("jump", "JumpAnim", SelectedAnims["Jump"])
+    -- 4. القفزة OldSchool
+    setAnim("jump", "JumpAnim", "10921242013")
 
-    -- Apply Fall
-    updateAnim("fall", "FallAnim", SelectedAnims["Fall"])
+    -- 5. السقوط Toy
+    setAnim("fall", "FallAnim", "782846423")
 
-    -- Apply Climb
-    updateAnim("climb", "ClimbAnim", SelectedAnims["Climb"])
+    -- 6. التسلق OldSchool
+    setAnim("climb", "ClimbAnim", "10921229866")
+
+    -- إعادة تنشيط سكربت Animate لتحديث الـ Animator وإظهار الحركة للجميع
+    animate.Disabled = true
+    task.wait(0.1)
+    animate.Disabled = false
 end
 
--- Execute on current character
 if player.Character then
-    task.spawn(applyAOEXAnimations, player.Character)
+    task.spawn(applyAnimations, player.Character)
 end
 
--- Auto re-apply seamlessly on respawn
-player.CharacterAdded:Connect(applyAOEXAnimations)
+player.CharacterAdded:Connect(applyAnimations)
