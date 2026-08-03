@@ -6,24 +6,25 @@ local LocalPlayer = Players.LocalPlayer
 local originalSheriff = nil
 local gunDropped = false
 
--- > دالة إنشاء مجسمات أحادية مطابقة لتفاصيل أجزاء الجسم وتظهر عند الاختفاء < --
+-- > دالة إنشاء تغطية 3D ناعمة ومطابقة لشكل الجسم < --
 local function createRedDot(character)
     for _, part in ipairs(character:GetChildren()) do
+        -- الفحص على أجزاء الجسم الأساسية (الرأس، الأذرع، الأرجل، الصدر)
         if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
             local tracker = part:FindFirstChild("MurdererPartTracker")
             if not tracker then
-                -- إنشاء جزء أحمر متوهج يطابق الجزء الأصلي
+                -- إنشاء جزء مطابق 3D
                 local redPart = Instance.new("Part")
                 redPart.Name = "MurdererPartTracker"
                 redPart.Size = part.Size
                 redPart.Color = Color3.fromRGB(255, 0, 0)
                 redPart.Material = Enum.Material.Neon
-                redPart.Transparency = 0.3 -- شفافية مريحة للعين ومتوهجة
+                redPart.Transparency = 0.35
                 redPart.CanCollide = false
                 redPart.Anchored = false
                 redPart.CastShadow = false
 
-                -- إذا كان الجزء عبارة عن رأس أو مجسم خاص، ننسخ الـ Mesh ليأخذ نفس الشكل تماماً
+                -- نسخ تفاصيل الشكل الهيكلي (Mesh) إن وجدت لإعطاء نفس المنحنيات 3D
                 local originalMesh = part:FindFirstChildOfClass("SpecialMesh")
                 if originalMesh then
                     local newMesh = originalMesh:Clone()
@@ -32,7 +33,7 @@ local function createRedDot(character)
 
                 redPart.Parent = part
 
-                -- ربطه بالجزء الأصلي ليتتبع حركته بالمليمتر
+                -- تثبيت الجزء الأحمر مع عضو الجسم ليتحرك معه في الأبعاد الثلاثية
                 local weld = Instance.new("Weld")
                 weld.Part0 = part
                 weld.Part1 = redPart
@@ -43,7 +44,7 @@ local function createRedDot(character)
     end
 end
 
--- > دالة تنظيف التغطية الحمراء < --
+-- > دالة حذف التغطية الحمراء < --
 local function removeRedDot(character)
     for _, part in ipairs(character:GetChildren()) do
         if part:IsA("BasePart") then
@@ -87,7 +88,7 @@ local function isGunOnGround()
     return false
 end
 
--- > دالة تحديد الدور < --
+-- > دالة تحديد الدور بدقة < --
 local function getRole(player)
     if not player or not player.Character then return "Innocent" end
     
@@ -196,7 +197,7 @@ local function applyHighlights()
 
                     if role == "Murderer" then
                         highlight.FillColor = Color3.fromRGB(255, 0, 0)     -- أحمر للقاتل
-                        createRedDot(char)                                   -- مجسمات نيون مطابقة للشكل وتفاصيل الجسم تظهر عند الاختفاء
+                        createRedDot(char)                                   -- هالة 3D ناعمة تغطي أجزاء الجسم عند الاختفاء
                     elseif role == "Sheriff" then
                         highlight.FillColor = Color3.fromRGB(0, 150, 255)   -- أزرق للشريف
                         removeRedDot(char)
