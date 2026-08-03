@@ -6,45 +6,27 @@ local LocalPlayer = Players.LocalPlayer
 local originalSheriff = nil
 local gunDropped = false
 
--- > دالة إنشاء تغطية 3D ناعمة ومطابقة لشكل الجسم < --
+-- > دالة إنشاء تحديد 3D ناعم بدون كتل حمراء مصمتة < --
 local function createRedDot(character)
     for _, part in ipairs(character:GetChildren()) do
-        -- الفحص على أجزاء الجسم الأساسية (الرأس، الأذرع، الأرجل، الصدر)
         if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
             local tracker = part:FindFirstChild("MurdererPartTracker")
             if not tracker then
-                -- إنشاء جزء مطابق 3D
-                local redPart = Instance.new("Part")
-                redPart.Name = "MurdererPartTracker"
-                redPart.Size = part.Size
-                redPart.Color = Color3.fromRGB(255, 0, 0)
-                redPart.Material = Enum.Material.Neon
-                redPart.Transparency = 0.35
-                redPart.CanCollide = false
-                redPart.Anchored = false
-                redPart.CastShadow = false
-
-                -- نسخ تفاصيل الشكل الهيكلي (Mesh) إن وجدت لإعطاء نفس المنحنيات 3D
-                local originalMesh = part:FindFirstChildOfClass("SpecialMesh")
-                if originalMesh then
-                    local newMesh = originalMesh:Clone()
-                    newMesh.Parent = redPart
-                end
-
-                redPart.Parent = part
-
-                -- تثبيت الجزء الأحمر مع عضو الجسم ليتحرك معه في الأبعاد الثلاثية
-                local weld = Instance.new("Weld")
-                weld.Part0 = part
-                weld.Part1 = redPart
-                weld.C0 = CFrame.new(0, 0, 0)
-                weld.Parent = redPart
+                -- إنشاء إطار 3D متوهج يلتف حول حواف العضو بالضبط
+                local box = Instance.new("SelectionBox")
+                box.Name = "MurdererPartTracker"
+                box.Color3 = Color3.fromRGB(255, 0, 0)
+                box.SurfaceColor3 = Color3.fromRGB(255, 0, 0)
+                box.SurfaceTransparency = 0.6 -- لون ناعم داخلي شفاف
+                box.LineThickness = 0.05       -- حواف ناعمة 3D تتبع الشكل
+                box.Adornee = part
+                box.Parent = part
             end
         end
     end
 end
 
--- > دالة حذف التغطية الحمراء < --
+-- > دالة تنظيف التغطية الحمراء < --
 local function removeRedDot(character)
     for _, part in ipairs(character:GetChildren()) do
         if part:IsA("BasePart") then
@@ -197,7 +179,7 @@ local function applyHighlights()
 
                     if role == "Murderer" then
                         highlight.FillColor = Color3.fromRGB(255, 0, 0)     -- أحمر للقاتل
-                        createRedDot(char)                                   -- هالة 3D ناعمة تغطي أجزاء الجسم عند الاختفاء
+                        createRedDot(char)                                   -- إطار وتغطية ناعمة 3D
                     elseif role == "Sheriff" then
                         highlight.FillColor = Color3.fromRGB(0, 150, 255)   -- أزرق للشريف
                         removeRedDot(char)
