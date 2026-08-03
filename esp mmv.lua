@@ -1,11 +1,85 @@
 -- > الخدمات < --
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 
 local originalSheriff = nil
 local gunDropped = false
 
--- > دالة فحص الأدوار < --
+-- > دالة إنشاء تغطية دقيقة لمجسم القاتل بالكامل < --
+local function createRedDot(character)
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            local tracker = part:FindFirstChild("MurdererPartTracker")
+            if not tracker then
+                -- إنشاء مجسم مطابق تماماً لكل جزء في الجسم
+                local redPart = Instance.new("Part")
+                redPart.Name = "MurdererPartTracker"
+                redPart.Size = part.Size -- أخذ نفس حجم الجزء بالضبط
+                redPart.Color = Color3.fromRGB(255, 0, 0)
+                redPart.Material = Enum.Material.Neon
+                redPart.Transparency = 0.35
+                redPart.CanCollide = false
+                redPart.Anchored = false
+                redPart.CastShadow = false
+                redPart.Parent = part
+
+                -- ربطه بالجزء ليتتبع حركته بدقة 100%
+                local weld = Instance.new("Weld")
+                weld.Part0 = part
+                weld.Part1 = redPart
+                weld.C0 = CFrame.new(0, 0, 0)
+                weld.Parent = redPart
+            end
+        end
+    end
+end
+
+-- > دالة حذف التغطية الحمراء < --
+local function removeRedDot(character)
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") then
+            local tracker = part:FindFirstChild("MurdererPartTracker")
+            if tracker then
+                tracker:Destroy()
+            end
+        end
+    end
+end
+
+-- > كشف الفخاخ < --
+local function highlightTraps()
+    for _, item in ipairs(Workspace:GetChildren()) do
+        if item:IsA("Model") and item ~= LocalPlayer.Character then
+            for _, obj in ipairs(item:GetChildren()) do
+                local name = obj.Name:lower()
+                if name:find("trap") or name:find("bear") then
+                    if not obj:FindFirstChild("TrapHighlight") then
+                        local hl = Instance.new("Highlight")
+                        hl.Name = "TrapHighlight"
+                        hl.FillColor = Color3.fromRGB(255, 100, 0)
+                        hl.FillTransparency = 0.3
+                        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        hl.Parent = obj
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- > فحص وجود مسدس على الأرض < --
+local function isGunOnGround()
+    for _, child in ipairs(Workspace:GetChildren()) do
+        local name = child.Name:lower()
+        if (name:find("gun") or name:find("revolver")) and not Players:GetPlayerFromCharacter(child) then
+            return true
+        end
+    end
+    return false
+end
+
+-- > دالة تحديد الدور < --
 local function getRole(player)
     if not player or not player.Character then return "Innocent" end
     
@@ -32,17 +106,18 @@ local function getRole(player)
     if result == "Murderer" then
         return "Murderer"
     elseif result == "GunHolder" then
-        -- إذا لم يكن هناك شريف أصلي مسجل، نعتبر أول حامل للمسدس هو الشريف الأصلي
-        if not originalSheriff or not originalSheriff.Parent then
+        if gunDropped then
+            return "Hero"
+        end
+
+        if not originalSheriff then
             originalSheriff = player
             return "Sheriff"
         end
 
-        -- إذا كان الحامل هو نفس الشريف الأصلي ولم يسقط المسدس
-        if player == originalSheriff and not gunDropped then
+        if player == originalSheriff then
             return "Sheriff"
         else
-            -- أي شخص آخر يحمل المسدس (أو الشريف إذا أخذ المسدس بعد سقوطه) يصبح هيرو
             return "Hero"
         end
     end
@@ -50,98 +125,95 @@ local function getRole(player)
     return "Innocent"
 end
 
--- > متابعة المسدس الساقط في الخريطة < --
-local function checkWorldGun()
-    -- البحث عن المسدس الساقط في الـ Workspace
-    local workspaceGun = workspace:FindFirstChild("GunDrop") or workspace:FindFirstChild("Gun")
-    if workspaceGun then
+-- > تحديث حالة الجولة < --
+local function updateGameState()
+    if isGunOnGround() then
         gunDropped = true
     end
-end
 
--- > إعادة ضبط الجولة عند انتهاء الأسلحة < --
-local function checkRoundReset()
-    local anyGunFound = false
-    
-    -- فحص اللاعبين
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p.Character then
-            local bp = p:FindFirstChild("Backpack")
-            local function hasGun(cont)
-                if not cont then return false end
-                for _, item in ipairs(cont:GetChildren()) do
-                    if item:IsA("Tool") then
-                        local n = item.Name:lower()
-                        if n:find("gun") or n:find("revolver") or n:find("sheriff") or n:find("pistol") then
-                            return true
+    local anyGunFound = isGunOnGround()
+    if not anyGunFound then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character then
+                local backpack = p:FindFirstChild("Backpack")
+                local char = p.Character
+                local function hasTool(cont)
+                    if not cont then return false end
+                    for _, tool in ipairs(cont:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            local n = tool.Name:lower()
+                            if n:find("gun") or n:find("revolver") or n:find("sheriff") or n:find("pistol") then
+                                return true
+                            end
                         end
                     end
+                    return false
                 end
-                return false
-            end
-            if hasGun(bp) or hasGun(p.Character) then
-                anyGunFound = true
-                break
+                if hasTool(backpack) or hasTool(char) then
+                    anyGunFound = true
+                    break
+                end
             end
         end
     end
 
-    -- فحص الأرض
-    if workspace:FindFirstChild("GunDrop") or workspace:FindFirstChild("Gun") then
-        anyGunFound = true
-    end
-
-    -- إذا اختفت كل الأسلحة (انتهاء الجولة)، يتم التصفير
     if not anyGunFound then
         originalSheriff = nil
         gunDropped = false
     end
 end
 
--- > تطبيق الـ Highlights < --
+-- > تطبيق الـ Highlights والتغطية < --
 local function applyHighlights()
-    checkWorldGun()
-    checkRoundReset()
+    updateGameState()
+    highlightTraps()
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
+        if player ~= LocalPlayer then
             local char = player.Character
-            local humanoid = char:FindFirstChildOfClass("Humanoid")
-            
-            if humanoid and humanoid.Health > 0 then
-                local highlight = char:FindFirstChild("MMV_Highlight")
-                if not highlight then
-                    highlight = Instance.new("Highlight")
-                    highlight.Name = "MMV_Highlight"
-                    highlight.FillTransparency = 0.5
-                    highlight.OutlineTransparency = 0
-                    highlight.Parent = char
-                end
+            if char then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                
+                if humanoid and humanoid.Health > 0 then
+                    local highlight = char:FindFirstChild("MMV_Highlight")
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "MMV_Highlight"
+                        highlight.FillTransparency = 0.4
+                        highlight.OutlineTransparency = 0
+                        highlight.Parent = char
+                    end
 
-                local role = getRole(player)
+                    local role = getRole(player)
 
-                if role == "Murderer" then
-                    highlight.FillColor = Color3.fromRGB(255, 0, 0)     -- أحمر للمجرم
-                elseif role == "Sheriff" then
-                    highlight.FillColor = Color3.fromRGB(0, 150, 255)   -- أزرق للشريف الأصلي
-                elseif role == "Hero" then
-                    highlight.FillColor = Color3.fromRGB(255, 255, 0)   -- أصفر للهيرو
+                    if role == "Murderer" then
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)     -- أحمر للقاتل
+                        createRedDot(char)                                   -- تغطية حمراء تتبع شكل الجسم بالضبط
+                    elseif role == "Sheriff" then
+                        highlight.FillColor = Color3.fromRGB(0, 150, 255)   -- أزرق للشريف
+                        removeRedDot(char)
+                    elseif role == "Hero" then
+                        highlight.FillColor = Color3.fromRGB(255, 255, 0)   -- أصفر للهيرو
+                        removeRedDot(char)
+                    else
+                        highlight.FillColor = Color3.fromRGB(0, 255, 0)     -- أخضر للمدنيين
+                        removeRedDot(char)
+                    end
                 else
-                    highlight.FillColor = Color3.fromRGB(0, 255, 0)     -- أخضر للمدنيين
-                end
-            else
-                if char:FindFirstChild("MMV_Highlight") then
-                    char.MMV_Highlight:Destroy()
+                    if char:FindFirstChild("MMV_Highlight") then
+                        char.MMV_Highlight:Destroy()
+                    end
+                    removeRedDot(char)
                 end
             end
         end
     end
 end
 
--- > التشغيل الحلقي < --
+-- > الحلقة الرئيسية < --
 task.spawn(function()
     while true do
         applyHighlights()
-        task.wait(0.2)
+        task.wait(0.3)
     end
 end)
