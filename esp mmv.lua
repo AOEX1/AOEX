@@ -6,35 +6,26 @@ local LocalPlayer = Players.LocalPlayer
 local originalSheriff = nil
 local gunDropped = false
 
--- > دالة إنشاء تحديد 3D ناعم بدون كتل حمراء مصمتة < --
+-- > دالة تفعيل كشف القاتل (تأخذ شكل جسمه 3D بدقة وبدون أي مكعبات) < --
 local function createRedDot(character)
-    for _, part in ipairs(character:GetChildren()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-            local tracker = part:FindFirstChild("MurdererPartTracker")
-            if not tracker then
-                -- إنشاء إطار 3D متوهج يلتف حول حواف العضو بالضبط
-                local box = Instance.new("SelectionBox")
-                box.Name = "MurdererPartTracker"
-                box.Color3 = Color3.fromRGB(255, 0, 0)
-                box.SurfaceColor3 = Color3.fromRGB(255, 0, 0)
-                box.SurfaceTransparency = 0.6 -- لون ناعم داخلي شفاف
-                box.LineThickness = 0.05       -- حواف ناعمة 3D تتبع الشكل
-                box.Adornee = part
-                box.Parent = part
-            end
-        end
+    local tracker = character:FindFirstChild("MurdererESP_Tracker")
+    if not tracker then
+        local hl = Instance.new("Highlight")
+        hl.Name = "MurdererESP_Tracker"
+        hl.FillColor = Color3.fromRGB(255, 0, 0)         -- لون أحمر نيون داخل الجسم
+        hl.FillTransparency = 0.25                       -- شفافية لتحديد معالم الجسم
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)   -- إطار أبيض يحدد أبعاد الشكل ثلاثي الأبعاد
+        hl.OutlineTransparency = 0                        -- إطار واضح جداً
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- يضمن الظهور عند الاختفاء وخلف الجدران
+        hl.Parent = character
     end
 end
 
--- > دالة تنظيف التغطية الحمراء < --
+-- > دالة حذف كشف القاتل < --
 local function removeRedDot(character)
-    for _, part in ipairs(character:GetChildren()) do
-        if part:IsA("BasePart") then
-            local tracker = part:FindFirstChild("MurdererPartTracker")
-            if tracker then
-                tracker:Destroy()
-            end
-        end
+    local tracker = character:FindFirstChild("MurdererESP_Tracker")
+    if tracker then
+        tracker:Destroy()
     end
 end
 
@@ -179,7 +170,7 @@ local function applyHighlights()
 
                     if role == "Murderer" then
                         highlight.FillColor = Color3.fromRGB(255, 0, 0)     -- أحمر للقاتل
-                        createRedDot(char)                                   -- إطار وتغطية ناعمة 3D
+                        createRedDot(char)                                   -- تغطية حمراء ناعمة جداً تتبع شكل الجسم 3D
                     elseif role == "Sheriff" then
                         highlight.FillColor = Color3.fromRGB(0, 150, 255)   -- أزرق للشريف
                         removeRedDot(char)
