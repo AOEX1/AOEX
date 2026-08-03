@@ -6,26 +6,52 @@ local LocalPlayer = Players.LocalPlayer
 local originalSheriff = nil
 local gunDropped = false
 
--- > دالة إنشاء هالة مطابقة لجسم القاتل تماماً وتظهر عند الاختفاء < --
+-- > دالة إنشاء مجسمات أحادية مطابقة لتفاصيل أجزاء الجسم وتظهر عند الاختفاء < --
 local function createRedDot(character)
-    local tracker = character:FindFirstChild("MurdererInvisibilityTracker")
-    if not tracker then
-        local hl = Instance.new("Highlight")
-        hl.Name = "MurdererInvisibilityTracker"
-        hl.FillColor = Color3.fromRGB(255, 0, 0)
-        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-        hl.FillTransparency = 0.2              -- درجة الشفافية للون الأحمر داخل الجسم
-        hl.OutlineTransparency = 0             -- إطار أبيض واضح يحدد انحناءات الجسم
-        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- تجعله يظهر دائماً حتى عند الاختفاء أو خلف الجدران
-        hl.Parent = character
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            local tracker = part:FindFirstChild("MurdererPartTracker")
+            if not tracker then
+                -- إنشاء جزء أحمر متوهج يطابق الجزء الأصلي
+                local redPart = Instance.new("Part")
+                redPart.Name = "MurdererPartTracker"
+                redPart.Size = part.Size
+                redPart.Color = Color3.fromRGB(255, 0, 0)
+                redPart.Material = Enum.Material.Neon
+                redPart.Transparency = 0.3 -- شفافية مريحة للعين ومتوهجة
+                redPart.CanCollide = false
+                redPart.Anchored = false
+                redPart.CastShadow = false
+
+                -- إذا كان الجزء عبارة عن رأس أو مجسم خاص، ننسخ الـ Mesh ليأخذ نفس الشكل تماماً
+                local originalMesh = part:FindFirstChildOfClass("SpecialMesh")
+                if originalMesh then
+                    local newMesh = originalMesh:Clone()
+                    newMesh.Parent = redPart
+                end
+
+                redPart.Parent = part
+
+                -- ربطه بالجزء الأصلي ليتتبع حركته بالمليمتر
+                local weld = Instance.new("Weld")
+                weld.Part0 = part
+                weld.Part1 = redPart
+                weld.C0 = CFrame.new(0, 0, 0)
+                weld.Parent = redPart
+            end
+        end
     end
 end
 
--- > دالة حذف الهالة < --
+-- > دالة تنظيف التغطية الحمراء < --
 local function removeRedDot(character)
-    local tracker = character:FindFirstChild("MurdererInvisibilityTracker")
-    if tracker then
-        tracker:Destroy()
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") then
+            local tracker = part:FindFirstChild("MurdererPartTracker")
+            if tracker then
+                tracker:Destroy()
+            end
+        end
     end
 end
 
@@ -170,7 +196,7 @@ local function applyHighlights()
 
                     if role == "Murderer" then
                         highlight.FillColor = Color3.fromRGB(255, 0, 0)     -- أحمر للقاتل
-                        createRedDot(char)                                   -- تغطية حمراء ساطعة على تفاصيل الجسم بالضبط
+                        createRedDot(char)                                   -- مجسمات نيون مطابقة للشكل وتفاصيل الجسم تظهر عند الاختفاء
                     elseif role == "Sheriff" then
                         highlight.FillColor = Color3.fromRGB(0, 150, 255)   -- أزرق للشريف
                         removeRedDot(char)
