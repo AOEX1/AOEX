@@ -6,26 +6,58 @@ local LocalPlayer = Players.LocalPlayer
 local originalSheriff = nil
 local gunDropped = false
 
--- > دالة تفعيل كشف القاتل (تأخذ شكل جسمه 3D بدقة وبدون أي مكعبات) < --
+-- > دالة تتبع القاتل عند الاختفاء (3D ناعم بدون مكعبات وبدون ما يختفي مع قدرة الاختفاء) < --
 local function createRedDot(character)
-    local tracker = character:FindFirstChild("MurdererESP_Tracker")
-    if not tracker then
-        local hl = Instance.new("Highlight")
-        hl.Name = "MurdererESP_Tracker"
-        hl.FillColor = Color3.fromRGB(255, 0, 0)         -- لون أحمر نيون داخل الجسم
-        hl.FillTransparency = 0.25                       -- شفافية لتحديد معالم الجسم
-        hl.OutlineColor = Color3.fromRGB(255, 255, 255)   -- إطار أبيض يحدد أبعاد الشكل ثلاثي الأبعاد
-        hl.OutlineTransparency = 0                        -- إطار واضح جداً
-        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- يضمن الظهور عند الاختفاء وخلف الجدران
-        hl.Parent = character
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            local tracker = part:FindFirstChild("InvisTracker")
+            if not tracker then
+                -- إنشاء جزء نيون أحمر شفاف ثابت لا يتأثر باختفاء القاتل
+                local redPart = Instance.new("Part")
+                redPart.Name = "InvisTracker"
+                redPart.Size = part.Size
+                redPart.Color = Color3.fromRGB(255, 0, 0)
+                redPart.Material = Enum.Material.Neon
+                redPart.Transparency = 0.4 -- شفافية ناعمة تخليه باين وما يشوهش الرؤية
+                redPart.CanCollide = false
+                redPart.Anchored = false
+                redPart.CastShadow = false
+
+                -- نسخ الـ Mesh الأصلي للجزء لو كان فيه تفاصيل انحناء (علشان ياخد شكل العضو بالضبط مش مربع)
+                local originalMesh = part:FindFirstChildOfClass("SpecialMesh") or part:FindFirstChildOfClass("BlockMesh")
+                if originalMesh then
+                    local newMesh = originalMesh:Clone()
+                    newMesh.Parent = redPart
+                end
+
+                redPart.Parent = part
+
+                -- تثبيت القطعة في العضو لفتح الرؤية 3D
+                local weld = Instance.new("Weld")
+                weld.Part0 = part
+                weld.Part1 = redPart
+                weld.C0 = CFrame.new(0, 0, 0)
+                weld.Parent = redPart
+            end
+
+            -- إجبار الجزء الأحمر إنه يفضل باين حتى لو الجزء الأصلي اختفى (Transparency = 1)
+            local trackerPart = part:FindFirstChild("InvisTracker")
+            if trackerPart then
+                trackerPart.Transparency = 0.35
+            end
+        end
     end
 end
 
--- > دالة حذف كشف القاتل < --
+-- > دالة مسح تتبع الاختفاء < --
 local function removeRedDot(character)
-    local tracker = character:FindFirstChild("MurdererESP_Tracker")
-    if tracker then
-        tracker:Destroy()
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") then
+            local tracker = part:FindFirstChild("InvisTracker")
+            if tracker then
+                tracker:Destroy()
+            end
+        end
     end
 end
 
@@ -42,6 +74,7 @@ local function highlightTraps()
                         hl.FillColor = Color3.fromRGB(255, 100, 0)
                         hl.FillTransparency = 0.3
                         hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                         hl.Parent = obj
                     end
                 end
@@ -161,8 +194,9 @@ local function applyHighlights()
                     if not highlight then
                         highlight = Instance.new("Highlight")
                         highlight.Name = "MMV_Highlight"
-                        highlight.FillTransparency = 0.4
+                        highlight.FillTransparency = 0.35
                         highlight.OutlineTransparency = 0
+                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                         highlight.Parent = char
                     end
 
@@ -170,7 +204,7 @@ local function applyHighlights()
 
                     if role == "Murderer" then
                         highlight.FillColor = Color3.fromRGB(255, 0, 0)     -- أحمر للقاتل
-                        createRedDot(char)                                   -- تغطية حمراء ناعمة جداً تتبع شكل الجسم 3D
+                        createRedDot(char)                                   -- حماية كشف القاتل عند استخدام ميزة الاختفاء
                     elseif role == "Sheriff" then
                         highlight.FillColor = Color3.fromRGB(0, 150, 255)   -- أزرق للشريف
                         removeRedDot(char)
